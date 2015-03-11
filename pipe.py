@@ -9,7 +9,7 @@ import numpy as np
 
 def _to_dict(**kw): return kw
 
-def run(sandbox_dir, data, t1, roi, rewrite = True, bvecs = None, bvals = None, start_from = None, run_until = None, eddy = None, brain = None, t1_brain = None, fa = None, fa_erode = None, fa_thresh = None, diff_roi = None, roi_mask = None, tensor = None, stream_lines = None):
+def run(sandbox_dir, data, t1, roi, mni, rewrite = True, bvecs = None, bvals = None, start_from = None, run_until = None, eddy = None, brain = None, t1_brain = None, fa = None, fa_erode = None, fa_thresh = None, diff_roi = None, roi_mask = None, tensor = None, stream_lines = None):
 	"""generate the connectome
 	if bvecs or bvals are not provided, uses bvecs and bvals files in directory of 'data'
 	start_from specifies which step to start calculating from, valid values in step order:
@@ -64,7 +64,7 @@ def run(sandbox_dir, data, t1, roi, rewrite = True, bvecs = None, bvals = None, 
 		fa_thresh = fas[2]
 
 	diff_roi = calc_if_necessary('diff_roi', 
-			lambda: register_rois(fa_erode, t1_brain, roi))
+			lambda: register_rois(fa_erode, t1_brain, mni, roi))
 
 	roi_mask = calc_if_necessary('roi_mask', 
 			lambda: remove_high_fa_from_roi(diff_roi, fa_thresh))
@@ -195,13 +195,70 @@ def prepare_fa_maps(input_file, brain_mask, bvecs = 'bvecs', bvals = 'bvals', fa
 
 	return (fa, erode_output, thresh_output)
 
-def register_rois(brain, mni, roi):
+def register_rois(diff_fa, t1, std, roi):
+
+	std_to_t1 = fsl.FLIRT()
+	std_to_t1.inputs.in_file = std
+	std_to_t1.inputs.reference = t1
+	std_to_t1.inputs.out_matrix_file = 'std_to_t1.mat'
+	std_to_t1.inputs.out_file = 'std_to_t1.nii.gz'
+	_run(std_to_t1)
+
+	roi_to_t1 = fsl.FLIRT()
+	roi_to_t1.inputs.in_file = roi
+	roi_to_t1.inputs.reference = t1
+	roi_to_t1.inputs.out_matrix_file = 'roi_to_t1.mat'
+	roi_to_t1.inputs.out_file = 'roi_to_t1.nii.gz'
+	roi_to_t1.inputs.in_matrix_file = std_to_t1.inputs.out_matrix_file
+	_run(roi_to_t1)
+
+	fa_sqr = fsl.UnaryMaths()
+	fa_sqr.inputs.in_file = diff_fa
+	fa_sqr.inputs.out_file = insert_into_filename(diff_fa, '_sqr')
+	fa_sqr.inputs.operation = 'sqr'
+	_run(fa_sqr)
+
+
+	t1_to_fa_sqr = fsl.FLIRT()
+	t1_to_fa_sqr.inputs.in_file = t1
+	t1_to_fa_sqr.inputs.reference = fa_sqr.inputs.out_file
+	t1_to_fa_sqr.inputs.out_matrix_file = 't1_to_fa_sqr.mat'
+	t1_to_fa_sqr.inputs.out_file = 't1_to_fa_sqr.nii.gz'
+
+	t1_to_fa_sqr.inputs.cost = 'corratio'
+	t1_to_fa_sqr.inputs.bins = 256
+	t1_to_fa_sqr.inputs.searchr_x = [45, 45]
+	t1_to_fa_sqr.inputs.searchr_y = [45, 45]
+	t1_to_fa_sqr.inputs.searchr_z = [45, 45]
+	t1_to_fa_sqr.inputs.dof = 12
+	t1_to_fa_sqr.inputs.interp = 'trilinear'
+	_run(t1_to_fa_sqr)
+	
+
+	roi_t1_to_diff = fsl.FLIRT()
+	roi_t1_to_diff.inputs.in_file = roi_to_t1.inputs.out_file 
+	roi_t1_to_diff.inputs.reference = diff_fa
+	roi_t1_to_diff.inputs.in_matrix_file = t1_to_fa_sqr.inputs.out_matrix_file
+	roi_t1_to_diff.inputs.out_matrix_file = 'roi_t1_to_diff.mat'
+	roi_t1_to_diff.inputs.out_file = 'roi_t1_to_diff.nii.gz'
+
+	roi_t1_to_diff.inputs.cost = 'corratio'
+	roi_t1_to_diff.inputs.bins = 256
+	roi_t1_to_diff.inputs.searchr_x = [45, 45]
+	roi_t1_to_diff.inputs.searchr_y = [45, 45]
+	roi_t1_to_diff.inputs.searchr_z = [45, 45]
+	roi_t1_to_diff.inputs.dof = 12
+	roi_t1_to_diff.inputs.interp = 'trilinear'
+
+	_run(roi_t1_to_diff)
+
+	"""
 	std_to_diff = fsl.FLIRT()
 
-	std_to_diff.inputs.reference = brain
+	std_to_diff.inputs.reference = diff_fa
 	std_to_diff.inputs.out_matrix_file = 'std_to_diff.mat'
 	std_to_diff.inputs.out_file = 'std_to_diff.nii.gz'
-	std_to_diff.inputs.in_file = mni
+	std_to_diff.inputs.in_file = std
 
 	std_to_diff.inputs.cost = 'corratio'
 	std_to_diff.inputs.bins = 256
@@ -216,7 +273,7 @@ def register_rois(brain, mni, roi):
 	roi_to_diff = fsl.FLIRT()
 	
 	roi_to_diff.inputs.in_file = roi
-	roi_to_diff.inputs.reference = brain
+	roi_to_diff.inputs.reference = diff_fa
 	roi_to_diff.inputs.out_file = 'roi_to_diff.nii.gz'
 	roi_to_diff.inputs.in_matrix_file = std_to_diff.inputs.out_matrix_file
 	roi_to_diff.inputs.apply_xfm = True
@@ -226,6 +283,9 @@ def register_rois(brain, mni, roi):
 	_run(roi_to_diff)
 
 	return roi_to_diff.inputs.out_file
+	"""
+
+	return roi_t1_to_diff.inputs.out_file
 
 def remove_high_fa_from_roi(roi, fa):
 	fa_inv = fsl.UnaryMaths()
