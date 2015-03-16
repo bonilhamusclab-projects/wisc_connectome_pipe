@@ -225,13 +225,6 @@ def register_rois(diff_fa, t1, std, roi):
 	t1_to_fa_sqr.inputs.out_matrix_file = 't1_to_fa_sqr.mat'
 	t1_to_fa_sqr.inputs.out_file = 't1_to_fa_sqr.nii.gz'
 
-	t1_to_fa_sqr.inputs.cost = 'corratio'
-	t1_to_fa_sqr.inputs.bins = 256
-	t1_to_fa_sqr.inputs.searchr_x = [45, 45]
-	t1_to_fa_sqr.inputs.searchr_y = [45, 45]
-	t1_to_fa_sqr.inputs.searchr_z = [45, 45]
-	t1_to_fa_sqr.inputs.dof = 12
-	t1_to_fa_sqr.inputs.interp = 'trilinear'
 	_run(t1_to_fa_sqr)
 	
 
@@ -241,14 +234,6 @@ def register_rois(diff_fa, t1, std, roi):
 	roi_t1_to_diff.inputs.in_matrix_file = t1_to_fa_sqr.inputs.out_matrix_file
 	roi_t1_to_diff.inputs.out_matrix_file = 'roi_t1_to_diff.mat'
 	roi_t1_to_diff.inputs.out_file = 'roi_t1_to_diff.nii.gz'
-
-	roi_t1_to_diff.inputs.cost = 'corratio'
-	roi_t1_to_diff.inputs.bins = 256
-	roi_t1_to_diff.inputs.searchr_x = [45, 45]
-	roi_t1_to_diff.inputs.searchr_y = [45, 45]
-	roi_t1_to_diff.inputs.searchr_z = [45, 45]
-	roi_t1_to_diff.inputs.dof = 12
-	roi_t1_to_diff.inputs.interp = 'trilinear'
 
 	_run(roi_t1_to_diff)
 
