@@ -202,7 +202,16 @@ def register_rois(diff_fa, t1, std, roi):
 	std_to_t1.inputs.reference = t1
 	std_to_t1.inputs.out_matrix_file = 'std_to_t1.mat'
 	std_to_t1.inputs.out_file = 'std_to_t1.nii.gz'
+
+	std_to_t1.inputs.cost = 'corratio'
+	std_to_t1.inputs.bins = 256
+	std_to_t1.inputs.searchr_x = [45, 45]
+	std_to_t1.inputs.searchr_y = [45, 45]
+	std_to_t1.inputs.searchr_z = [45, 45]
+	std_to_t1.inputs.dof = 12
+	std_to_t1.inputs.interp = 'trilinear'
 	_run(std_to_t1)
+
 
 	roi_to_t1 = fsl.FLIRT()
 	roi_to_t1.inputs.in_file = roi
@@ -211,6 +220,7 @@ def register_rois(diff_fa, t1, std, roi):
 	roi_to_t1.inputs.out_file = 'roi_to_t1.nii.gz'
 	roi_to_t1.inputs.in_matrix_file = std_to_t1.inputs.out_matrix_file
 	_run(roi_to_t1)
+
 
 	fa_sqr = fsl.UnaryMaths()
 	fa_sqr.inputs.in_file = diff_fa
