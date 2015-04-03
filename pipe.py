@@ -9,6 +9,27 @@ import numpy as np
 
 def _to_dict(**kw): return kw
 
+def _get_inputs(patient_num, t1_dir, root_sandbox, dti_dir):
+    patient_num = str(patient_num)
+    def file_from_dir(d):
+        return [os.path.join(d, f) for f in os.listdir(d) if patient_num in f][0]
+    t1 = file_from_dir(t1_dir)
+    sb = os.path.join(root_sandbox, patient_num)
+
+    dti = file_from_dir(dti_dir)
+    def add_dti_dir(f): return os.path.join(dti, f)
+
+    data = add_dti_dir( 'data.nii.gz')
+    bvecs = add_dti_dir([b for b in os.listdir(dti) if 'bve' in b][0])
+    bvals = add_dti_dir([b for b in os.listdir(dti) if 'bva' in b][0])
+
+    return (data, bvecs, bvals, sb, t1)
+
+def run_many(patient_nums, t1_dir, root_sandbox, dti_dir, roi, mni):
+    for p in patient_nums:
+        data, bvecs, bvals, sb, t1 = _get_inputs(p, t1_dir, root_sandbox, dti_dir)
+        run(sb, data, t1, roi, mni, bvecs = bvecs, bvals = bvals)
+
 def run(sandbox_dir, data, t1, roi, mni, rewrite = True, bvecs = None, bvals = None, start_from = None, run_until = None, eddy = None, brain = None, t1_brain = None, fa = None, fa_erode = None, fa_thresh = None, diff_roi = None, roi_mask = None, tensor = None, stream_lines = None):
 	"""generate the connectome
 	if bvecs or bvals are not provided, uses bvecs and bvals files in directory of 'data'
