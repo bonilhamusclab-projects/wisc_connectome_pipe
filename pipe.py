@@ -6,6 +6,7 @@ import muscip.connectome as mcon
 import nipype.interfaces.diffusion_toolkit as dtk
 import nipype.interfaces.fsl as fsl
 import numpy as np
+import pandas as pd
 
 def _to_dict(**kw): return kw
 
@@ -107,14 +108,27 @@ def compile_connectome(fibers, roi_mask):
 	C.generate_network()
 	C.write('ctome')
 
+
+def get_ctome_mat(ctome_path, log = True, key = 'fiber_count'):
+	C = mcon.read(ctome_path)
+	mat = C.matrix_for_key(key)
+	if log:
+		mat = np.log(1 + mat)
+	return mat
+
+
+def ctome_to_csv(ctome_path, f_output, log = True, key = 'fiber_count'):
+	mat = get_ctome_mat(ctome_path, log, key)
+	df = pd.DataFrame(mat)
+	df.to_csv(f_output, header=False, index = False)
+
+
 def show_ctome(ctome_path, log = True):
 	C = mcon.read(ctome_path)
-	fiber_counts = C.matrix_for_key('fiber_count')
-	if log:
-		fiber_counts = np.log(1 + fiber_counts)
+	fiber_mat = get_ctome_mat(ctome_path, log)
 
 	fig = plt.figure('Connectome Matrix')
-	plt.imshow(fiber_counts)
+	plt.imshow(fiber_mat)
 	plt.colorbar()
 	fig.tight_layout()
 	plt.show()
